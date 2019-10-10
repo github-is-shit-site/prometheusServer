@@ -92,7 +92,7 @@ namespace Prometheus
 						buf.curPos_ += strlen(buf.data() + buf.curPos_);
 					}
 					//	value
-					sprintf(buf.data() + buf.curPos_, " %f\n", value_);
+					sprintf(buf.data() + buf.curPos_, " %e\n", value_);
 					buf.curPos_ += strlen(buf.data() + buf.curPos_);
 
 				}
@@ -101,7 +101,7 @@ namespace Prometheus
 		protected:
 				string name_;
 				string description_;
-				double value_;
+				volatile double value_;
 				Type type_;
 				unordered_map<string, string> labels_;
 
