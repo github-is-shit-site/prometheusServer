@@ -13,6 +13,7 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
+#include <atomic>
 
 
 using namespace std;
@@ -53,11 +54,38 @@ namespace Prometheus
 
 				void SetValue(double val)
 				{
-					value_ = val;
+					if (type_ == Type::Counter)
+					{
+						double oldVal;
+						do
+						{
+							double oldVal = cntVal_;
+						} while (!cntVal_.compare_exchange_strong(oldVal, oldVal + val));
+					}
+					else
+						value_ = val;
+					ts_ = time(nullptr) * 1000;
 				}
 
-				void Write(OutBuff &buf)
+				void SetValue(string key, double val)
 				{
+					if (type_ == Type::Histogram)
+					{
+						double oldVal;
+						do
+						{
+							double oldVal = bars_[key];
+						} while (!bars_[key].compare_exchange_strong(oldVal, oldVal + val));
+					}
+					else
+						bars_[key] = val;
+					ts_ = time(nullptr) * 1000;
+				}
+
+				void Write(OutBuff& buf)
+				{
+					if (ts_ == 0)
+						return;
 					if (buf.size() - buf.curPos_ < 0x1000)
 						buf.resize(buf.size() + 0x10000);
 					// Write the header comments
@@ -66,14 +94,61 @@ namespace Prometheus
 					sprintf(buf.data() + buf.curPos_, "# HELP %s %s\n", name_.c_str(), description_.c_str());
 					buf.curPos_ += strlen(buf.data() + buf.curPos_);
 
-					memcpy(buf.data() + buf.curPos_, name_.c_str(), name_.length());
-					buf.curPos_ += name_.length();
+					//	value
+					if (type_ == Type::Summary || type_ == Type::Histogram)
+					{
+						auto bars = move(bars_);
+						for (auto& bar : bars)
+						{
+							memcpy(buf.data() + buf.curPos_, name_.c_str(), name_.length());
+							buf.curPos_ += name_.length();
 
+							unordered_map<string, string> labels = labels_;
+							labels[type_ == Type::Summary ? "quantile" : "le"] = bar.first;
+							PrintLabels(buf, labels);
+							sprintf(buf.data() + buf.curPos_, " %e %ld\n", bar.second.exchange(0), ts_);
+							buf.curPos_ += strlen(buf.data() + buf.curPos_);
+						}
+					}
+					else
+					{
+						memcpy(buf.data() + buf.curPos_, name_.c_str(), name_.length());
+						buf.curPos_ += name_.length();
+
+						if (type_ == Type::Counter)
+						{
+							PrintLabels(buf, labels_);
+							sprintf(buf.data() + buf.curPos_, " %e %ld\n", cntVal_.exchange(0), ts_);
+							buf.curPos_ += strlen(buf.data() + buf.curPos_);
+						}
+						else
+						{
+							PrintLabels(buf, labels_);
+							sprintf(buf.data() + buf.curPos_, " %e %ld\n", value_, ts_);
+							buf.curPos_ += strlen(buf.data() + buf.curPos_);
+						}
+					}
+
+				}
+
+
+		protected:
+				string name_;
+				string description_;
+				volatile double value_;
+				atomic<double> cntVal_;
+				Type type_;
+				unordered_map<string, string> labels_;
+				unordered_map<string, atomic<double>> bars_;
+				long ts_ = 0;
+
+				void PrintLabels(OutBuff& buf, unordered_map<string, string>& labels)
+				{
 					// lables
 					strcpy(buf.data() + buf.curPos_, "{");
 					buf.curPos_ += strlen(buf.data() + buf.curPos_);
 
-					for (auto &label : labels_)
+					for (auto &label : labels)
 					{
 						strcpy(buf.data() + buf.curPos_, label.first.c_str());
 						buf.curPos_ += label.first.length();
@@ -84,27 +159,14 @@ namespace Prometheus
 						strcpy(buf.data() + buf.curPos_, "\",");
 						buf.curPos_ += strlen(buf.data() + buf.curPos_);
 					}
-					if (labels_.size())
+					if (labels.size())
 						buf[buf.curPos_ - 1] = '}';
 					else
 					{
 						strcpy(buf.data() + buf.curPos_, "}");
 						buf.curPos_ += strlen(buf.data() + buf.curPos_);
 					}
-					//	value
-					sprintf(buf.data() + buf.curPos_, " %e\n", value_);
-					buf.curPos_ += strlen(buf.data() + buf.curPos_);
-
 				}
-
-
-		protected:
-				string name_;
-				string description_;
-				volatile double value_;
-				Type type_;
-				unordered_map<string, string> labels_;
-
 
 				const char *ToString(Type type)
 				{
