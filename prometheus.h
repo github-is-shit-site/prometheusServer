@@ -86,6 +86,8 @@ namespace Prometheus
 				{
 					if (ts_ == 0)
 						return;
+					if ((type_ == Type::Summary || type_ == Type::Histogram) && bars_.size() == 0)
+						return;
 					if (buf.size() - buf.curPos_ < 0x1000)
 						buf.resize(buf.size() + 0x10000);
 					// Write the header comments
