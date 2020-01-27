@@ -108,7 +108,7 @@ namespace Prometheus
 							unordered_map<string, string> labels = labels_;
 							labels[type_ == Type::Summary ? "quantile" : "le"] = bar.first;
 							PrintLabels(buf, labels);
-							sprintf(buf.data() + buf.curPos_, " %e %ld\n", bar.second.exchange(0), ts_);
+							sprintf(buf.data() + buf.curPos_, " %e %ld\n", bar.second.exchange(0), time(nullptr) * 1000);//ts_); prometheus don't like real ts
 							buf.curPos_ += strlen(buf.data() + buf.curPos_);
 						}
 					}
@@ -120,13 +120,13 @@ namespace Prometheus
 						if (type_ == Type::Counter)
 						{
 							PrintLabels(buf, labels_);
-							sprintf(buf.data() + buf.curPos_, " %e %ld\n", cntVal_.exchange(0), ts_);
+							sprintf(buf.data() + buf.curPos_, " %e %ld\n", cntVal_.exchange(0), time(nullptr) * 1000);//ts_); prometheus don't like real ts
 							buf.curPos_ += strlen(buf.data() + buf.curPos_);
 						}
 						else
 						{
 							PrintLabels(buf, labels_);
-							sprintf(buf.data() + buf.curPos_, " %e %ld\n", value_, ts_);
+							sprintf(buf.data() + buf.curPos_, " %e %ld\n", value_, time(nullptr) * 1000);//ts_); prometheus don't like real ts
 							buf.curPos_ += strlen(buf.data() + buf.curPos_);
 						}
 					}
