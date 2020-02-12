@@ -265,7 +265,7 @@ namespace Prometheus
 						metric->Write(buff);
 
 					if (onSubscribeHandler_)
-						onSubscribeHandler_(newfd, (int) SocketEvent::read | (int) SocketEvent::write);
+						onSubscribeHandler_(newfd, (int) SocketEvent::read);
 
 				}
 
