@@ -395,7 +395,7 @@ namespace Prometheus
 					buf.curPos_ += sizeof(header) - 1;
 				}
 
-
+                return 0;
 		};
 
 		class StatServerLibEv : public StatServer
