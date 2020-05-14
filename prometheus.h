@@ -386,7 +386,8 @@ namespace Prometheus
 
 					if (onSubscribeHandler_)
 						onSubscribeHandler_(socketfd_, (int) SocketEvent::accept);
-				}
+                    return 0;
+                }
 
 				void HttpWriteHeader(OutBuff &buf)
 				{
@@ -395,7 +396,6 @@ namespace Prometheus
 					buf.curPos_ += sizeof(header) - 1;
 				}
 
-                return 0;
 		};
 
 		class StatServerLibEv : public StatServer
